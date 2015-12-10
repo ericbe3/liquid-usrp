@@ -46,6 +46,7 @@ void usage() {
     liquid_print_modulation_schemes();
     printf("  c     : coding scheme (inner),  default: g2412\n");
     printf("  k     : coding scheme (outer),  default: none\n");
+    printf("  a     : USRP Address String addr=\n");
     liquid_print_fec_schemes();
 }
 
@@ -71,9 +72,12 @@ int main (int argc, char **argv)
     fec_scheme fec0 = LIQUID_FEC_NONE;      // fec (inner)
     fec_scheme fec1 = LIQUID_FEC_GOLAY2412; // fec (outer)
     
+    // String for USRP Address info
+    char * addr_str = "";
+
     //
     int d;
-    while ((d = getopt(argc,argv,"uhqvf:b:g:G:N:M:C:T:P:m:c:k:")) != EOF) {
+    while ((d = getopt(argc,argv,"uhqvf:b:g:G:N:M:C:T:P:m:c:k:a:")) != EOF) {
         switch (d) {
         case 'u':
         case 'h':   usage();                        return 0;
@@ -91,6 +95,7 @@ int main (int argc, char **argv)
         case 'm':   ms          = liquid_getopt_str2mod(optarg);    break;
         case 'c':   fec0        = liquid_getopt_str2fec(optarg);    break;
         case 'k':   fec1        = liquid_getopt_str2fec(optarg);    break;
+        case 'a':   addr_str    = optarg;           break;
         default:    usage();                        return 0;
         }
     }
@@ -111,7 +116,7 @@ int main (int argc, char **argv)
 
     // create transceiver object
     unsigned char * p = NULL;   // default subcarrier allocation
-    ofdmtxrx txcvr(M, cp_len, taper_len, p, NULL, NULL);
+    ofdmtxrx txcvr(M, cp_len, taper_len, p, NULL, NULL, addr_str);
 
     // set properties
     txcvr.set_tx_freq(frequency);
@@ -154,4 +159,3 @@ int main (int argc, char **argv)
     printf("done.\n");
     return 0;
 }
-

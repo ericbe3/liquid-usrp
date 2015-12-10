@@ -121,6 +121,79 @@ ofdmtxrx::ofdmtxrx(unsigned int       _M,
     // TODO: create and start tx thread
 }
 
+ofdmtxrx::ofdmtxrx(unsigned int       _M,
+                   unsigned int       _cp_len,
+                   unsigned int       _taper_len,
+                   unsigned char *    _p,
+                   framesync_callback _callback,
+                   void *             _userdata,
+                   char *             _usrp_addr_str)
+{
+    // validate input
+    if (_M < 8) {
+        fprintf(stderr,"error: ofdmtxrx::ofdmtxrx(), number of subcarriers must be at least 8\n");
+        throw 0;
+    } else if (_cp_len < 1) {
+        fprintf(stderr,"error: ofdmtxrx::ofdmtxrx(), cyclic prefix length must be at least 1\n");
+        throw 0;
+    } else if (_taper_len > _cp_len) {
+        fprintf(stderr,"error: ofdmtxrx::ofdmtxrx(), taper length cannot exceed cyclic prefix length\n");
+        throw 0;
+    }
+
+    // set internal properties
+    M            = _M;
+    cp_len       = _cp_len;
+    taper_len    = _taper_len;
+    debug_enabled= false;
+
+    // create frame generator
+    unsigned char * p = NULL;   // subcarrier allocation (default)
+    ofdmflexframegenprops_init_default(&fgprops);
+    fgprops.check           = LIQUID_CRC_32;
+    fgprops.fec0            = LIQUID_FEC_NONE;
+    fgprops.fec1            = LIQUID_FEC_HAMMING128;
+    fgprops.mod_scheme      = LIQUID_MODEM_QPSK;
+    fg = ofdmflexframegen_create(M, cp_len, taper_len, p, &fgprops);
+
+    // allocate memory for frame generator output (single OFDM symbol)
+    fgbuffer_len = M + cp_len;
+    fgbuffer = (std::complex<float>*) malloc(fgbuffer_len * sizeof(std::complex<float>));
+    
+    // create frame synchronizer
+    fs = ofdmflexframesync_create(M, cp_len, taper_len, p, _callback, _userdata);
+    // TODO: create buffer
+
+    // create usrp objects
+    uhd::device_addr_t dev_addr(_usrp_addr_str);
+    usrp_tx = uhd::usrp::multi_usrp::make(dev_addr);
+    usrp_rx = uhd::usrp::multi_usrp::make(dev_addr);
+
+    // initialize default tx values
+    set_tx_freq(462.0e6f);
+    set_tx_rate(500e3);
+    set_tx_gain_soft(-12.0f);
+    set_tx_gain_uhd(40.0f);
+
+    // initialize default rx values
+    set_rx_freq(462.0e6f);
+    set_rx_rate(500e3);
+    set_rx_gain_uhd(20.0f);
+
+    // reset transceiver
+    reset_tx();
+    reset_rx();
+
+    // create and start rx thread
+    rx_running = false;                     // receiver is not running initially
+    rx_thread_running = true;               // receiver thread IS running initially
+    pthread_mutex_init(&rx_mutex, NULL);    // receiver mutex
+    pthread_cond_init(&rx_cond,   NULL);    // receiver condition
+    pthread_create(&rx_process,   NULL, ofdmtxrx_rx_worker, (void*)this);
+    
+    // TODO: create and start tx thread
+}
+
 // destructor
 ofdmtxrx::~ofdmtxrx()
 {

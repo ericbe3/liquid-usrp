@@ -50,6 +50,14 @@ public:
              framesync_callback _callback,
              void *             _userdata);
 
+    ofdmtxrx(unsigned int       _M,
+             unsigned int       _cp_len,
+             unsigned int       _taper_len,
+             unsigned char *    _p,
+             framesync_callback _callback,
+             void *             _userdata,
+             char *             _usrp_addr_str);
+
     // destructor
     ~ofdmtxrx();
 
@@ -143,4 +151,3 @@ int ofdmtxrx_callback(unsigned char *  _header,
 #endif
 
 #endif // __OFDMTXRX_H__
-
